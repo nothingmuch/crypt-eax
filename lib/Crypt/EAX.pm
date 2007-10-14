@@ -139,7 +139,7 @@ sub finish {
 	my ( $self, @args ) = @_;
 
 	die "No current mode. Did you forget to call start()?" unless $self->mode;
-	
+
 	my $tag = $self->iv ^ $self->omac->digest;
 	$self->reset;
 

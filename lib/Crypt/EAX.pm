@@ -13,7 +13,7 @@ use Carp qw(croak);
 use Digest::CMAC;
 use Crypt::Ctr::FullWidth;
 
-__PACKAGE__->mk_accessors(qw(N iv omac ctr fatal mode));
+__PACKAGE__->mk_accessors(qw(N c_omac n_omac h_omac header ctr fatal mode));
 
 sub new {
 	my ( $class, @args ) = @_;
@@ -26,10 +26,17 @@ sub new {
 
 	my %args = ( cipher => "Crypt::Rijndael", fatal => 1, @args );
 
-	my $omac = Digest::CMAC->new( @args{qw(key cipher)} );
+	my @omacs = map { Digest::CMAC->new( @args{qw(key cipher)} ) } 1 .. 3;
 	my $ctr =  Crypt::Ctr::FullWidth->new( @args{qw(key cipher)} );
 
-	my $self = $class->SUPER::new({ omac => $omac, ctr => $ctr, iv => undef, fatal => $args{fatal} });
+	my $self = $class->SUPER::new({
+		c_omac => $omacs[0],
+		n_omac => $omacs[1],
+		h_omac => $omacs[2],
+		ctr    => $ctr,
+		fatal  => $args{fatal},
+		header => $args{header},
+	});
 
 	$self->_init(\%args);
 
@@ -42,22 +49,26 @@ sub _cbc_k {
 
 sub reset {
 	my $self = shift;
-	$self->omac->reset;
+
 	$self->ctr->reset;
+	$self->c_omac->reset;
+	$self->h_omac->reset;
+
 	$self->ctr->set_nonce($self->N);
-	$self->omac_t(2);
+
+	$self->omac_t( $self->c_omac, 2 );
+	if ( defined ( my $header = $self->header ) ) {
+		$self->omac_t( $self->h_omac, 1, $header );
+	}
 }
 
 sub _init {
 	my ( $self, $args ) = @_;
 
-	# in nonvoid context it calls ->digest which resets
-	my $N = $self->omac_t( 0, $args->{nonce} || '');
-	my $H = $self->omac_t( 1, $args->{header} || '' );
+	$self->N( $self->omac_t( $self->n_omac, 0, $args->{nonce} || '') );
 
-	$self->N($N);
-	$self->iv( $N ^ $H );
-
+	$self->omac_t( $self->h_omac, 1 );
+	
 	$self->reset;
 
 }
@@ -115,12 +126,20 @@ sub verification_failed {
 	}
 }
 
+sub add_header {
+	my ( $self, $plain ) = @_;
+
+	$self->h_omac->add( $plain );
+
+	return;
+}
+
 sub add_encrypt {
 	my ( $self, $plain ) = @_;
 
 	my $ciphertext = $self->ctr->encrypt($plain) || '';
 
-	$self->omac->add( $ciphertext );
+	$self->c_omac->add( $ciphertext );
 
 	return $ciphertext;
 }
@@ -128,7 +147,7 @@ sub add_encrypt {
 sub add_decrypt {
 	my ( $self, $ciphertext ) = @_;
 
-	$self->omac->add( $ciphertext );
+	$self->c_omac->add( $ciphertext );
 
 	my $plain = $self->ctr->decrypt($ciphertext);
 
@@ -140,8 +159,7 @@ sub finish {
 
 	die "No current mode. Did you forget to call start()?" unless $self->mode;
 
-	my $tag = $self->iv ^ $self->omac->digest;
-	$self->reset;
+	my $tag = $self->tag;
 
 	if ( $self->mode eq 'encrypting' ) {
 		return $tag;
@@ -153,25 +171,37 @@ sub finish {
 	}
 }
 
+sub tag {
+	my $self = shift;
+
+	my $N = $self->N;
+	my $H = $self->h_omac->digest;
+	my $C = $self->c_omac->digest;
+
+	$self->reset;
+
+	return $N ^ $H ^ $C;
+}
+
 sub omac_t {
-	my ( $self, $t, @msg ) = @_;
+	my ( $self, $omac, $t, @msg ) = @_;
 
 	my $blocksize = $self->blocksize;
 	my $padsize = $blocksize -1;
 
 	my $num = pack("x$padsize C", $t);
 
-	$self->omac->add( $num );
+	$omac->add( $num );
 
-	$self->omac->add( $_ ) for @msg;
+	$omac->add( $_ ) for @msg;
 
-	return $self->omac->digest if defined wantarray;
+	return $omac->digest if defined wantarray;
 }
 
 sub blocksize {
 	my $self = shift;
 
-	$self->omac->{cipher}->blocksize;
+	$self->c_omac->{cipher}->blocksize;
 }
 
 __PACKAGE__;
@@ -250,6 +280,12 @@ Whether or not failed verification dies or returns a false value.
 
 Additional data to be authenticated but not encrypted.
 
+Note that it's also possible to incrementally add the header using
+C<add_header>.
+
+If the C<header> option is passed instead then C<add_header> will be called
+with it as an argument every time C<reset> is called.
+
 This will not be included in the resulting ciphertext, but the ciphertext must
 be authenticated against it.
 
@@ -327,6 +363,11 @@ Used by C<encrypt_parts> and C<decrypt_parts>.
 Streaming mode of operation. Requires a call to C<start> before and C<finish>
 after. Used by C<decrypt_parts> and C<encrypt_parts>.
 
+=item add_header $header
+
+Add header data that will be authenticated as well. See C<header> for more
+details.
+
 =item verification_failed
 
 Called when verification fails. Dies when C<fatal> is set, returns a false
@@ -337,10 +378,6 @@ value otherwise.
 =head1 TODO
 
 =over 4
-
-=item *
-
-Support header streaming, not just message streaming.
 
 =item *
 

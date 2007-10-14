@@ -72,7 +72,7 @@ sub encrypt_parts {
 
 	$self->start('encrypting');
 
-   	return ( $self->_encrypt($plain), $self->finish );
+   	return ( $self->add_encrypt($plain), $self->finish );
 }
 
 sub encrypt {
@@ -85,7 +85,7 @@ sub decrypt_parts {
 
 	$self->start('decrypting');
 
-	my $plain = $self->_decrypt( $ciphertext );
+	my $plain = $self->add_decrypt( $ciphertext );
 
 	if ( $self->finish($tag) ) {
 		return $plain;
@@ -115,7 +115,7 @@ sub verification_failed {
 	}
 }
 
-sub _encrypt {
+sub add_encrypt {
 	my ( $self, $plain ) = @_;
 
 	my $ciphertext = $self->ctr->encrypt($plain) || '';
@@ -125,7 +125,7 @@ sub _encrypt {
 	return $ciphertext;
 }
 
-sub _decrypt {
+sub add_decrypt {
 	my ( $self, $ciphertext ) = @_;
 
 	$self->omac->add( $ciphertext );

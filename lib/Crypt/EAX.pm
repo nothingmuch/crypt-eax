@@ -52,7 +52,7 @@ sub _init {
 	my ( $self, $args ) = @_;
 
 	# in nonvoid context it calls ->digest which resets
-	my $N = $self->omac_t( 0, $args->{nonce} );
+	my $N = $self->omac_t( 0, $args->{nonce} || '');
 	my $H = $self->omac_t( 1, $args->{header} || '' );
 
 	$self->N($N);

@@ -67,6 +67,8 @@ sub _init {
 
 	$self->N( $self->omac_t( $self->n_omac, 0, $args->{nonce} || '') );
 
+	$self->n_omac( undef ); # no longer needed
+
 	$self->omac_t( $self->h_omac, 1 );
 	
 	$self->reset;

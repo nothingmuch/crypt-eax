@@ -4,6 +4,8 @@ use strict;
 
 use ExtUtils::MakeMaker;
 
+require 5.008;
+
 WriteMakefile(
 	NAME         => 'Crypt-EAX',
 	VERSION_FROM => 'lib/Crypt/EAX.pm',

@@ -11,6 +11,8 @@ WriteMakefile(
 	SIGN         => 1,
 	PL_FILES     => { },
 	PREREQ_PM    => {
+		'Digest::CMAC' => 0.03, # prev versions have a bug
+		'Crypt::Ctr' => 0,
 	},
 );
 

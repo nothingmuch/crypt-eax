@@ -182,13 +182,187 @@ __END__
 
 =head1 NAME
 
-Crypt::EAX - 
+Crypt::EAX - Encrypt and authenticate data in EAX mode
 
 =head1 SYNOPSIS
 
 	use Crypt::EAX;
 
+	my $c = Crypt::EAX->new(
+		key => $key,
+		cipher => "Crypt::Rijndael",
+		header => $header, # optional
+		nonce => $nonce, # optional but reccomended
+		fatal => 1,
+	);
+
+	my $ciphertext = $c->encrypt( $message );
+
+	$ciphertext ^= "moose"; # corrupt it
+
+	$c->decrypt( $ciphertext ); # dies
+
+	$ciphertext ^= "moose"; # xor is reversible
+
+	is( $c->decrypt( $ciphertext ), $msg );
+
 =head1 DESCRIPTION
+
+EAX is a cipher chaining mode with integrated message authentication. This type
+of encryption mode is called AEAD, or Authenticated Encryption with Associated
+Data.
+
+The purpuse of AEAD modes is that you can safely encrypt and sign a value with
+a shared key. The message will not decrypt if it has been tampered with.
+
+There are various reasons why just C<encrypt(mac($message))> is not safe, but I
+don't exactly know them since I'm not a crptographer. For more info use The
+Oracle Google.
+
+Read more about EAX AEAD here:
+
+=over 4
+
+=item L<http://en.wikipedia.org/wiki/EAX_mode>
+
+=item L<http://en.wikipedia.org/wiki/AEAD_block_cipher_modes_of_operation>
+
+=back
+
+=head1 CONFIGURATION
+
+=over 4
+
+=item key
+
+The key used to encrypt/decrypt and authenticate. Passed verbatim to
+L<Crypt::Ctr::FullWidth> and L<Digest::CMAC>.
+
+=item cipher
+
+Defaults to L<Crypt::Rijndael>. Likewise passed verbatim.
+
+=item fatal
+
+Whether or not failed verification dies or returns a false value.
+
+=item header
+
+Additional data to be authenticated but not encrypted.
+
+This will not be included in the resulting ciphertext, but the ciphertext must
+be authenticated against it.
+
+Presumably you are supposed to encode the ciphertext and header together in
+your message.
+
+This is the Associated Data part of AEAD.`
+
+Be careful if you deconstruct the message naively, like this:
+
+	my ( $header, $ciphertext ) = unpack("a/N a*", $message);
+
+since you are inherently trusting the input data already, before it's been
+verified (the /N can be altered, and though knowing Perl this is probably safe,
+I wouldn't count on it).
+
+At any rate do not trust the header till the ciphertext has been successfully
+decrypted.
+
+=item nonce
+
+The nonce to use for authentication. Should be unique. See
+L<http://en.wikipedia.org/wiki/Cryptographic_nonce>.
+
+It is OK to pass this along with the ciphertext, much like the salt bit in
+C<crypt>.
+
+An empty value is allowed and is in fact the default, but this is not safe
+against replay attacks.
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+=item new %args
+
+Instantiate a new L<Crypt::EAX> object.
+
+See L</CONFIGURATION>.
+
+=item encrypt $plaintext
+
+=item decrypt $ciphertext
+
+Single step encryption/decryption.
+
+The tag is appended to the ciphertext.
+
+=item encrypt_parts $plaintext
+
+Returns the ciphertext and tag as separate tags.
+
+=item decrypt_parts $ciphertext, $tag
+
+Decrypts and verifies the message.
+
+=item start $mode
+
+Takes either C<encrypting> or C<decrypting>.
+
+=item finish ?$tag
+
+If encrypting, returns the tag.
+
+If decrypting, checks that $tag is equal to the calculated tag.
+
+Used by C<encrypt_parts> and C<decrypt_parts>.
+
+=item add_encrypt $text
+
+=item add_decrypt $ciphertext
+
+Streaming mode of operation. Requires a call to C<start> before and C<finish>
+after. Used by C<decrypt_parts> and C<encrypt_parts>.
+
+=item verification_failed
+
+Called when verification fails. Dies when C<fatal> is set, returns a false
+value otherwise.
+
+=back
+
+=head1 TODO
+
+=over 4
+
+=item *
+
+Support header streaming, not just message streaming.
+
+=item *
+
+Consider disallowing an empty nonce.
+
+Can anyone advise on this?
+
+=back
+
+=head1 SEE ALSO
+
+L<Digest::CMAC>, L<Crypt::Ctr>, L<Crypt::Ctr::FullWidth>, L<Crypt::Util>
+
+=head1 AUTHOR
+
+Yuval Kogman <nothingmuch@woobling.org>
+
+=head1 COPYRIGHT & LICENSE
+
+	Copyright (c) 2007 Yuval Kogman. All rights reserved
+	This program is free software; you can redistribute it and/or modify it
+	under the terms of the MIT license or the same terms as Perl itself.
 
 =cut
 

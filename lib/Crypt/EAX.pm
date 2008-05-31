@@ -391,6 +391,12 @@ Can anyone advise on this?
 
 L<Digest::CMAC>, L<Crypt::Ctr>, L<Crypt::Ctr::FullWidth>, L<Crypt::Util>
 
+=head1 VERSION CONTROL
+
+This module is maintained using Darcs. You can get the latest version from
+L<http://nothingmuch.woobling.org/code>, and use C<darcs send> to commit
+changes.
+
 =head1 AUTHOR
 
 Yuval Kogman <nothingmuch@woobling.org>

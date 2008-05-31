@@ -292,7 +292,7 @@ be authenticated against it.
 Presumably you are supposed to encode the ciphertext and header together in
 your message.
 
-This is the Associated Data part of AEAD.`
+This is the Associated Data part of AEAD.
 
 Be careful if you deconstruct the message naively, like this:
 

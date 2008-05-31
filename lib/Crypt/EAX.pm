@@ -296,11 +296,13 @@ This is the Associated Data part of AEAD.
 
 Be careful if you deconstruct the message naively, like this:
 
-	my ( $header, $ciphertext ) = unpack("a/N a*", $message);
+	my ( $header, $ciphertext ) = unpack("N/a a*", $message);
 
 since you are inherently trusting the input data already, before it's been
-verified (the /N can be altered, and though knowing Perl this is probably safe,
-I wouldn't count on it).
+verified (the N/ part can be altered, and though knowing Perl this is probably
+safe, I wouldn't count on it). The specific attack in this case is if a large
+number is encoded by the attacker in the N field then it could trick your
+program into trying allocate 4GB of memory in this particular example.
 
 At any rate do not trust the header till the ciphertext has been successfully
 decrypted.

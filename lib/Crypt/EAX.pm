@@ -26,13 +26,11 @@ sub new {
 
 	my %args = ( cipher => "Crypt::Rijndael", fatal => 1, @args );
 
-	my @omacs = map { Digest::CMAC->new( @args{qw(key cipher)} ) } 1 .. 3;
+	my %omacs = map { ( "${_}_omac" => Digest::CMAC->new( @args{qw(key cipher)} ) ) } qw(c n h);
 	my $ctr =  Crypt::Ctr::FullWidth->new( @args{qw(key cipher)} );
 
 	my $self = $class->SUPER::new({
-		c_omac => $omacs[0],
-		n_omac => $omacs[1],
-		h_omac => $omacs[2],
+		%omacs,
 		ctr    => $ctr,
 		fatal  => $args{fatal},
 		header => $args{header},

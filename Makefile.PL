@@ -13,6 +13,7 @@ WriteMakefile(
 	SIGN         => 1,
 	PL_FILES     => { },
 	PREREQ_PM    => {
+		'Test::use::ok' => 0,
 		'Digest::OMAC2' => 0, # in case CMAC 0.03 doesn't get indexed
 		'Digest::CMAC' => 0.03, # prev versions have a bug
 		'Crypt::Ctr' => 0,

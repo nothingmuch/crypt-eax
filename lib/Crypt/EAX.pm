@@ -1,10 +1,7 @@
 #!/usr/bin/perl
 
 package Crypt::EAX;
-use base qw(Class::Accessor::Fast);
-
-use strict;
-use warnings;
+use Squirrel;
 
 our $VERSION = "0.02";
 
@@ -13,9 +10,69 @@ use Carp qw(croak);
 use Digest::CMAC;
 use Crypt::Ctr::FullWidth;
 
-__PACKAGE__->mk_accessors(qw(N c_omac n_omac h_omac header ctr fatal mode));
+use namespace::clean -except => [qw(meta)];
 
-sub new {
+has key => (
+	isa => "Str",
+	is  => "ro",
+	required => 1,
+);
+
+has [qw(header nonce)] => (
+	isa => "Str",
+	is  => "ro",
+	default => '',
+);
+
+has mode => (
+	isa => "Str",
+	is  => "rw",
+);
+
+has N => (
+	isa => "Str",
+	is  => "rw",
+	lazy => 1,
+	default => sub {
+		my $self = shift;
+		$self->omac_t( $self->n_omac, 0, $self->nonce );
+	},
+);
+
+has cipher => (
+	#isa => "ClassName|Object",
+	is  => "rw",
+	default => "Crypt::Rijndael",
+);
+
+has fatal => (
+	isa => "Bool",
+	is  => "rw",
+	default => 1,
+);
+
+has ctr => (
+	isa => "Crypt::Ctr::FullWidth",
+	is  => "ro",
+	lazy => 1,
+	default => sub {
+		my $self = shift;
+		Crypt::Ctr::FullWidth->new( $self->key, $self->cipher );
+	},
+);
+
+has [qw(c_omac n_omac h_omac)] => (
+	isa => "Digest::CMAC",
+	is  => "ro",
+	lazy => 1,
+	default => sub {
+		my $self = shift;
+		Digest::CMAC->new( $self->key, $self->cipher );
+	},
+);
+
+around new => sub {
+	my $next = shift;
 	my ( $class, @args ) = @_;
 
 	if ( @args == 1 ) {
@@ -24,25 +81,12 @@ sub new {
 		@args = ( key => $args[0], cipher => $args[1] );
 	}
 
-	my %args = ( cipher => "Crypt::Rijndael", fatal => 1, @args );
-
-	my %omacs = map { ( "${_}_omac" => Digest::CMAC->new( @args{qw(key cipher)} ) ) } qw(c n h);
-	my $ctr =  Crypt::Ctr::FullWidth->new( @args{qw(key cipher)} );
-
-	my $self = $class->SUPER::new({
-		%omacs,
-		ctr    => $ctr,
-		fatal  => $args{fatal},
-		header => $args{header},
-	});
-
-	$self->_init(\%args);
-
-	return $self;
-}
+	$class->$next(@args);
+};
 
 sub _cbc_k {
 	my ( $self, $m ) = @_;
+	return;
 }
 
 sub reset {
@@ -55,22 +99,15 @@ sub reset {
 	$self->ctr->set_nonce($self->N);
 
 	$self->omac_t( $self->c_omac, 2 );
-	if ( defined ( my $header = $self->header ) ) {
+	if ( length ( my $header = $self->header ) ) {
 		$self->omac_t( $self->h_omac, 1, $header );
 	}
 }
 
-sub _init {
+sub BUILD {
 	my ( $self, $args ) = @_;
-
-	$self->N( $self->omac_t( $self->n_omac, 0, $args->{nonce} || '') );
-
-	$self->n_omac( undef ); # no longer needed
-
 	$self->omac_t( $self->h_omac, 1 );
-	
 	$self->reset;
-
 }
 
 sub start {
@@ -203,6 +240,8 @@ sub blocksize {
 
 	$self->c_omac->{cipher}->blocksize;
 }
+
+__PACKAGE__->meta->make_immutable if __PACKAGE__->meta->can("make_immutable");
 
 __PACKAGE__;
 

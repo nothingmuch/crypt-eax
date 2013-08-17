@@ -1,9 +1,9 @@
 #!/usr/bin/perl
 
 package Crypt::EAX;
-use Squirrel;
+use Moose;
 
-our $VERSION = "0.03";
+our $VERSION = "0.04";
 
 use Carp qw(croak);
 
@@ -71,17 +71,16 @@ has [qw(c_omac n_omac h_omac)] => (
 	},
 );
 
-around new => sub {
-	my $next = shift;
+sub BUILDARGS {
 	my ( $class, @args ) = @_;
 
 	if ( @args == 1 ) {
-		@args = ( key => $args[0] );
+		return { key => $args[0] }
 	} elsif ( @args == 2 and $args[0] ne 'key' ) {
-		@args = ( key => $args[0], cipher => $args[1] );
+		return { key => $args[0], cipher => $args[1] }
+	} else {
+		return $class->SUPER::BUILDARGS(@args);
 	}
-
-	$class->$next(@args);
 };
 
 sub _cbc_k {
@@ -147,7 +146,7 @@ sub decrypt {
 
 	my $blocksize = $self->blocksize;
 
-	$ciphertext =~ s/(.{$blocksize})$//s;
+	$ciphertext =~ s/(.{$blocksize})\z//s;
 	my $tag = $1;
 
 	$self->decrypt_parts( $ciphertext, $tag );

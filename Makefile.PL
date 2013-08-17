@@ -17,8 +17,7 @@ WriteMakefile(
 		'Test::Exception' => 0,
 		'Digest::CMAC' => '0.04', # prev versions have a bug
 		'Crypt::Ctr' => 0,
-		'Mouse' => '0.04',
-		'Squirrel' => 0,
+		'Moose' => '0.92',
 		'namespace::clean' => '0.08',
 	},
 );

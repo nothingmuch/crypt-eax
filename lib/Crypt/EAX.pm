@@ -146,7 +146,7 @@ sub decrypt {
 
 	my $blocksize = $self->blocksize;
 
-	$ciphertext =~ s/(.{$blocksize})$//s;
+	$ciphertext =~ s/(.{$blocksize})\z//s;
 	my $tag = $1;
 
 	$self->decrypt_parts( $ciphertext, $tag );
